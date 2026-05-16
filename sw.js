@@ -1,7 +1,7 @@
 /* 台灣卡店地圖 — service worker
    Shell precache (offline 即開) + Leaflet SWR + OSM tile 上限快取。
    改版時 bump VERSION 觸發更新。 */
-const VERSION = "v1-2026-05-16";
+const VERSION = "v2-2026-05-16";
 const SHELL = "shell-" + VERSION;
 const TILES = "tiles-" + VERSION;
 const LIB   = "lib-"   + VERSION;
@@ -54,7 +54,7 @@ self.addEventListener("fetch", e => {
   }
 
   // Leaflet CDN — stale-while-revalidate
-  if (url.hostname === "unpkg.com") {
+  if (url.hostname === "cdn.jsdelivr.net") {
     e.respondWith((async () => {
       const c = await caches.open(LIB);
       const hit = await c.match(req);

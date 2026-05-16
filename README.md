@@ -35,11 +35,12 @@ GitHub Pages（public repo `wical112/taiwan-card-shops`，main / root）。`git 
 
 ```
 # 1. 改 shops_raw2.json（現行資料源；shops_raw.json 為第一輪保留）
-python3 geocode.py shops_raw2.json shops_geo2.json   # Nominatim 漸進退化補 lat/lng
-# 2. 注入：用 SHOPS 陣列替換 one-liner（見對話/LEARNINGS），keys 含 events / verified_2026
-# 3. ⚠️ 一定要 bump sw.js 個 VERSION（例 v2-2026-05-20）否則 PWA 用戶食 cache 舊版！
-# 4. git add -A && git commit && git push → Pages 自動 rebuild
+python3 build.py            # geocode → 注入 index.html → 自動 bump sw.js VERSION
+#   （python3 build.py --no-geo 可跳過 geocode 只重注入）
+# 2. git add -A && git commit -m "data: refresh" && git push → Pages 自動 rebuild
 ```
+
+`build.py` 已自動處理 SW VERSION bump（PWA cache invalidation）同 `DATA_UPDATED`，唔再使人手記。
 
 ## PWA / 離線
 
@@ -47,6 +48,7 @@ python3 geocode.py shops_raw2.json shops_geo2.json   # Nominatim 漸進退化補
 - **改任何嘢部署前必 bump `sw.js` 的 `VERSION`**（offline-first，唔 bump 用戶 cache 唔會更新）。
 - 導航掣用 directions deeplink（Apple `?daddr=` / Google `dir/?api=1`）→ 一撳即由現在位置帶路。
 - iOS 主畫面 icon：`icon.svg`（iOS 對 apple-touch-icon 偏好 PNG；如要最靚 icon 可日後加 180/512 PNG，現 SVG 已可用）。
+- 其他：篩選狀態記憶（重開沿用）、空結果一鍵清篩選、卡片 🗺️ 跳地圖定位、重訪自動定位（已授權）、🔄 邊行邊更新（watchPosition opt-in）、Leaflet 改用 jsdelivr CDN（亞洲較穩）。
 
 ## 已知 gap
 
