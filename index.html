@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>台灣卡店地圖 · Pokémon / One Piece</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      onerror="window.__noLeafletCss=1">
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141a30; --panel2:#1c2440; --line:#283153;
+    --txt:#eef1fb; --mut:#9aa3c7; --acc:#5b8cff;
+    --pk:#ff4d4f;        /* Pokémon 紅 */
+    --op:#2f6bff;        /* One Piece 藍 */
+    --both:#1fbf75;      /* 兩款都有 綠 */
+    --safe-b:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    -webkit-text-size-adjust:100%}
+  body{min-height:100dvh}
+  a{color:inherit}
+  header{position:sticky;top:0;z-index:600;background:rgba(11,16,32,.92);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 8px}
+  h1{margin:0;font-size:17px;font-weight:800;letter-spacing:.3px;display:flex;
+    align-items:center;gap:8px}
+  h1 small{font-weight:600;color:var(--mut);font-size:11px}
+  .legend{display:flex;gap:14px;margin:7px 0 2px;font-size:11.5px;color:var(--mut)}
+  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block;
+    margin-right:5px;vertical-align:middle}
+  .controls{display:flex;flex-direction:column;gap:8px;margin-top:9px}
+  .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+    color:var(--mut);padding:7px 13px;border-radius:999px;font-size:12.5px;
+    font-weight:700;cursor:pointer;transition:.12s;
+    min-height:38px;display:inline-flex;align-items:center}
+  .chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+  .chip.pk[aria-pressed="true"]{background:var(--pk);border-color:var(--pk)}
+  .chip.op[aria-pressed="true"]{background:var(--op);border-color:var(--op)}
+  .chip.both[aria-pressed="true"]{background:var(--both);border-color:var(--both)}
+  .row{display:flex;gap:8px}
+  .row input{flex:1;background:var(--panel);border:1px solid var(--line);
+    color:var(--txt);border-radius:12px;padding:10px 12px;font-size:14px;outline:none}
+  .row input::placeholder{color:#6b73a0}
+  .btn{border:0;border-radius:12px;font-weight:800;font-size:13px;cursor:pointer;
+    padding:10px 14px;white-space:nowrap}
+  .btn-loc{background:linear-gradient(135deg,#5b8cff,#7a5bff);color:#fff}
+  .btn-loc:disabled{opacity:.6}
+  .tabs{display:flex;gap:6px;margin-top:9px}
+  .tab{flex:1;text-align:center;padding:9px;border-radius:10px;font-weight:800;
+    font-size:13px;background:var(--panel);color:var(--mut);border:1px solid var(--line);
+    cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--panel2);color:var(--txt);
+    border-color:var(--acc)}
+  main{padding:12px 12px calc(28px + var(--safe-b))}
+  .status{font-size:12px;color:var(--mut);margin:2px 2px 12px;line-height:1.6}
+  .status b{color:var(--txt)}
+  #list{display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:13px 14px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+  .card.t-pokemon::before{background:var(--pk)}
+  .card.t-onepiece::before{background:var(--op)}
+  .card.t-both::before{background:var(--both)}
+  .card .nm{font-size:15.5px;font-weight:800;line-height:1.35;padding-left:6px}
+  .badges{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0;padding-left:6px}
+  .tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+  .tag.pk{background:rgba(255,77,79,.16);color:#ff8587}
+  .tag.op{background:rgba(47,107,255,.18);color:#7fa6ff}
+  .tag.both{background:rgba(31,191,117,.16);color:#4dd49b}
+  .tag.area{background:var(--panel2);color:var(--mut)}
+  .tag.dist{background:rgba(123,91,255,.18);color:#b6a4ff}
+  .tag.conf-low{background:rgba(255,176,32,.16);color:#ffce7a}
+  /* status badge = SOLID filled (≠ category tint pill) so 同色都唔撈亂 */
+  .tag.evt-yes{background:var(--both);color:#06281b;font-weight:800}
+  .tag.evt-no{background:transparent;color:#ffce7a;border:1px solid rgba(255,176,32,.55)}
+  .evt{font-size:12px;color:#aab2d8;margin:7px 0 0;padding-left:6px;line-height:1.55}
+  .evt b{color:#dfe4fb}
+  .addr-flag{color:#ffce7a;font-weight:700}
+  .chip.ver[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+  .banner{background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);
+    color:#ffce7a;font-size:11.5px;line-height:1.6;border-radius:12px;
+    padding:9px 34px 9px 12px;margin:0 2px 12px;position:relative}
+  .bn-x{position:absolute;top:5px;right:5px;width:26px;height:26px;border:0;
+    background:transparent;color:#ffce7a;font-size:14px;cursor:pointer;
+    border-radius:8px;line-height:1}
+  .addr{font-size:13px;color:var(--mut);margin:8px 0 0;padding-left:6px;line-height:1.55}
+  .note{font-size:12px;color:#7f88b3;margin:5px 0 0;padding-left:6px;font-style:italic}
+  .acts{display:flex;gap:8px;margin:11px 0 0;padding-left:6px}
+  .acts a{flex:1;text-align:center;text-decoration:none;border-radius:11px;
+    padding:12px;font-size:13px;font-weight:800}
+  .nav-apple{background:linear-gradient(135deg,#5b8cff,#7a5bff);color:#fff}
+  .nav-g{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .src{margin:9px 0 0;padding-left:6px}
+  .src a{font-size:11px;color:#6b73a0;text-decoration:underline;
+    display:inline-block;padding:4px 2px}
+  .empty{text-align:center;color:var(--mut);padding:50px 20px;font-size:14px}
+  #map{height:calc(100dvh - var(--hdr,250px) - 24px);min-height:340px;border-radius:16px;
+    border:1px solid var(--line);overflow:hidden;background:var(--panel)}
+  .maperr{padding:40px 20px;text-align:center;color:var(--mut);font-size:13px;
+    line-height:1.7}
+  .leaflet-popup-content{margin:12px 14px;font-family:inherit}
+  .pp-nm{font-weight:800;font-size:14px;color:#111;margin-bottom:6px}
+  .pp-ad{font-size:12px;color:#444;margin-bottom:8px}
+  .pp a{display:inline-block;text-decoration:none;background:#0b1020;color:#fff;
+    font-size:12px;font-weight:800;padding:7px 11px;border-radius:9px;margin:3px 4px 0 0}
+  .pp a.g{background:#1a73e8}
+  .hide{display:none!important}
+  footer{color:#5a6189;font-size:11px;text-align:center;padding:6px 16px 0;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <h1>🗺️ 台灣卡店地圖 <small>Pokémon · One Piece</small></h1>
+  <div class="controls">
+    <div class="chips" id="typeChips">
+      <button class="chip" data-type="all" aria-pressed="true">全部</button>
+      <button class="chip pk" data-type="pokemon" aria-pressed="false">🔴 有寶可夢</button>
+      <button class="chip op" data-type="onepiece" aria-pressed="false">🔵 有 One Piece</button>
+      <button class="chip both" data-type="both" aria-pressed="false">🟢 兩款都有</button>
+    </div>
+    <div class="chips" id="regionChips">
+      <button class="chip" data-region="all" aria-pressed="true">全台</button>
+      <button class="chip" data-region="台北・新北" aria-pressed="false">台北・新北</button>
+      <button class="chip" data-region="桃園・新竹" aria-pressed="false">桃園・新竹</button>
+      <button class="chip" data-region="台中" aria-pressed="false">台中</button>
+      <button class="chip" data-region="台南" aria-pressed="false">台南</button>
+      <button class="chip" data-region="高雄" aria-pressed="false">高雄</button>
+    </div>
+    <div class="chips">
+      <button class="chip ver" id="verBtn" aria-pressed="false">✅ 只睇 2026 已確認賽事</button>
+    </div>
+    <div class="row">
+      <input id="q" type="search" placeholder="搜尋店名 / 地址 / 商圈…" autocomplete="off">
+      <button class="btn btn-loc" id="locBtn">📍 搵最近</button>
+    </div>
+    <div class="tabs">
+      <button class="tab" id="tabList" aria-selected="true">📋 清單</button>
+      <button class="tab" id="tabMap" aria-selected="false">🗺️ 地圖</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="status" id="status"></div>
+  <div class="banner" id="opBanner" style="display:none">⚠️ One Piece：Bandai 官方 2026 台灣店賽逐店排程未公布（Store Tournament Vol.2 報名 2026/05/18 才開），OP 店標「賽程待確認」，去之前請先電話/粉專確認。PTCG 多數已對官方 2026 賽事頁核實。<button class="bn-x" id="bnX" aria-label="關閉提示" title="關閉">✕</button></div>
+  <div id="list"></div>
+  <div id="mapWrap" class="hide"><div id="map"></div></div>
+</main>
+
+<footer>
+  名單已「提純」為有辦官方賽事嘅店；✅ = 已對官方 2026 賽事頁核實，⚠️ = 店仍營運但 2026 逐場賽程未公布，去前請致電/睇粉專確認。<br>
+  地圖 pin 為約略位置；「導航」用真實地址，較準。離線可看清單與距離，地圖底圖需網路。<br>
+  <span id="meta"></span>
+</footer>
+
+<script>
+/* ====================================================================
+   SHOP DATA — 由 Philips 研究結果注入。每筆需可 trace 至 sources。
+   type: "pokemon" | "onepiece" | "both"
+   lat/lng: build 階段 geocode（約略）。缺座標仍可用地址導航。
+   ==================================================================== */
+const SHOPS = [
+  {"name": "法雅客 信義A9 寶可夢遊戲道館", "type": "pokemon", "address": "110台北市信義區松壽路9號地下2樓", "city": "台北市", "area": "信義區", "events": "官方活動頁列 2026/05/01–06/30 Pokémon GYM Battle 道館賽，18:00–22:00", "note": "法雅客門市內官方寶可夢遊戲道館，交通方便", "confidence": "high", "verified_2026": true, "lat": 25.035851, "lng": 121.566517, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/", "https://asia.pokemon-card.com/tw/event-search/58951/"]},
+  {"name": "貓腳印 士林店", "type": "pokemon", "address": "111台北市士林區大西路66號B1", "city": "台北市", "area": "士林夜市", "events": "官方活動頁列 2026/05/01–06/30 寶可夢卡牌日，19:00–21:00", "note": "貓腳印連鎖，士林夜市旁", "confidence": "high", "verified_2026": true, "lat": 25.090853, "lng": 121.524505, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/", "https://www.ptcg-news.com/store-info/north-store"]},
+  {"name": "The ONE 集換式卡牌會所", "type": "pokemon", "address": "106台北市大安區復興南路一段103號9樓之2", "city": "台北市", "area": "大安・忠孝復興", "events": "官方活動頁列 2026/05/01–06/30 寶可夢 GYM Battle 標準賽制，19:00–22:00", "note": "捷運忠孝復興站附近", "confidence": "high", "verified_2026": true, "lat": 25.043331, "lng": 121.543893, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/"]},
+  {"name": "崇文社遊戲店", "type": "pokemon", "address": "103台北市大同區寧夏路54號2樓", "city": "台北市", "area": "大同・寧夏夜市", "events": "官方活動頁列 2026/05/01–06/30 GYM Battle 標準賽制（Earnest Battle），19:00–22:00", "note": "寧夏夜市附近", "confidence": "high", "verified_2026": true, "lat": 25.058958, "lng": 121.514936, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/", "https://www.ptcg-news.com/store-info/north-store"]},
+  {"name": "磚櫃玩具店（台北店，實為新北中和）", "type": "pokemon", "address": "235新北市中和區宜安路18巷2號", "city": "新北市", "area": "中和區", "events": "官方活動頁列 2026/05/01 起 GYM Battle 開放賽制，15:00–17:00", "note": "店名台北店但實際喺新北中和", "confidence": "high", "verified_2026": true, "lat": 24.996309, "lng": 121.512453, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/"]},
+  {"name": "CardKame 卡卡咩（板橋店）", "type": "pokemon", "address": "220新北市板橋區府中路87號3樓", "city": "新北市", "area": "板橋・府中", "events": "官方活動頁列 2026/05/01–06/30 寶可夢卡牌日（Earnest Battle 標準賽制），19:00–21:00", "note": "捷運府中站附近", "confidence": "high", "verified_2026": true, "lat": 25.009564, "lng": 121.456051, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/", "https://www.ptcg-news.com/store-info/north-store"]},
+  {"name": "Pokémon Center TAIPEI", "type": "pokemon", "address": "110台北市信義區松壽路11號（新光三越A11館3樓）", "city": "台北市", "area": "信義區", "events": "2026 持續辦「寶可夢新手教學之旅」（含對戰示範＋Gym 環節），5月場次 6/7/13/24/27/28；設卡牌交換區及對戰區", "note": "全台首間官方寶可夢中心，入店需整理券；偏新手教學非高階道館賽", "confidence": "high", "verified_2026": true, "lat": 25.035851, "lng": 121.566517, "precision": "street", "sources": ["https://tw.portal-pokemon.com/topics/post-5672/", "https://tw.portal-pokemon.com/topics/post-5036/"]},
+  {"name": "Pokémon Play Lab（台南店 / GAME休閒館）", "type": "pokemon", "address": "700台南市中西區民族路二段62號", "city": "台南市", "area": "中西區", "events": "官方授權 Play Lab，2026 每週六寶可夢日、每週日道館賽 GYM Battle；場地免費，有官方認證教學員", "note": "GAME休閒館品牌官方 Play Lab", "confidence": "high", "verified_2026": true, "lat": 22.995215, "lng": 120.207136, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/archives/7661/", "https://tw.portal-pokemon.com/special/game/shoplist/"]},
+  {"name": "Pokémon Play Lab（高雄店 / GAME休閒館二號店）", "type": "pokemon", "address": "807高雄市三民區建國二路166號3樓", "city": "高雄市", "area": "三民區", "events": "2026/02 開幕官方授權 Play Lab，定期辦寶可夢卡牌日及道館賽；場地免費、有官方認證教學員", "note": "GAME休閒館高雄旗艦門市3樓", "confidence": "high", "verified_2026": true, "lat": 22.638353, "lng": 120.302516, "precision": "street", "sources": ["https://asia.pokemon-card.com/tw/archives/12031/", "https://game.ettoday.net/article/3113058.htm"]},
+  {"name": "雙子星卡牌（民權店）", "type": "pokemon", "address": "高雄市三民區民權一路一帶（詳細門牌待店家確認）", "city": "高雄市", "area": "三民・民權路", "events": "官方活動頁列 2026/05/01–06/30 GYM Battle 標準賽制，週日 19:00–23:00", "note": "官方賽事 verified，但門牌未能 source 完整 trace，地址降信心，建議先電話確認", "confidence": "medium", "verified_2026": true, "lat": 23.248602, "lng": 120.701906, "precision": "district", "sources": ["https://asia.pokemon-card.com/tw/event-search/list/"]},
+  {"name": "鬥樂一中店（Dou Le TCG）", "type": "pokemon", "address": "404台中市北區尊賢街9號4樓", "city": "台中市", "area": "北區・一中商圈", "events": "官方明示售寶可夢繁中版並辦繁中版官方賽事；2026 逐場賽程見店家粉專（近期 active）", "note": "一中商圈，同場有 MTG 等其他 TCG", "confidence": "high", "verified_2026": true, "lat": 24.148403, "lng": 120.68577, "precision": "street", "sources": ["https://www.douletcg.com/", "https://www.facebook.com/DouLeTCG/"]},
+  {"name": "牌牌戰 卡牌專賣店", "type": "pokemon", "address": "404台中市北區成功路401號", "city": "台中市", "area": "北區", "events": "辦寶可夢桌墊賽（B03 五輪瑞士制取8強，每場40分鐘），賽期公布於粉專；粉專 2026 近期 active", "note": "綜合 TCG 店；列於 ptcg-news 中部官方店名錄", "confidence": "medium", "verified_2026": true, "lat": 24.146256, "lng": 120.676617, "precision": "street", "sources": ["https://www.facebook.com/PAIPAIZHAN/", "https://www.ptcg-news.com/store-info/central-store"]},
+  {"name": "森柒柒 TCG卡牌桌遊店", "type": "pokemon", "address": "台中市中區（詳細門牌待店家粉專確認）", "city": "台中市", "area": "中區", "events": "列於 ptcg-news 中部官方道館店名錄，提供寶可夢卡牌；2026 賽程見粉專", "note": "地址只 trace 到中區，門牌未能 source 確認，建議先聯絡粉專", "confidence": "low", "verified_2026": false, "lat": 24.14383, "lng": 120.67951, "precision": "district", "sources": ["https://www.ptcg-news.com/store-info/central-store", "https://www.facebook.com/san77TCGame/"]},
+  {"name": "新竹新世紀 卡牌遊戲店", "type": "both", "address": "300新竹市北區平和街7號2樓", "city": "新竹市", "area": "新竹火車站周邊", "events": "新竹最大卡牌專門店，作為寶可夢道館辦賽事；同營航海王 OPCG。PTCG 列於 ptcg-news 北部官方店名錄；2026 逐場見粉專", "note": "OPCG 2026 官方店賽未能獨立 confirm，pokemon 部分信心較高", "confidence": "medium", "verified_2026": true, "lat": 24.804776, "lng": 120.96716, "precision": "street", "sources": ["https://www.ptcg-news.com/store-info/north-store", "https://www.facebook.com/newage.card.shop/"]},
+  {"name": "貓腳印 桃園店", "type": "pokemon", "address": "330桃園市桃園區中華路1號11樓", "city": "桃園市", "area": "桃園車站", "events": "貓腳印連鎖官方道館，列於 ptcg-news 北部官方店名錄；2026/05–06 官方活動頁含貓腳印分店場次，逐場見粉專", "note": "桃園車站附近", "confidence": "medium", "verified_2026": true, "lat": 24.990825, "lng": 121.310584, "precision": "street", "sources": ["https://www.ptcg-news.com/store-info/north-store", "https://asia.pokemon-card.com/tw/event-search/list/"]},
+  {"name": "貓腳印 中壢店", "type": "pokemon", "address": "320桃園市中壢區中央東路13號6樓", "city": "桃園市", "area": "中壢區", "events": "貓腳印連鎖官方道館，列於 ptcg-news 北部官方店名錄；2026/05–06 官方活動頁含貓腳印分店場次", "note": "另營 MTG / Union Arena / 遊戲王等", "confidence": "medium", "verified_2026": true, "lat": 24.957014, "lng": 121.224317, "precision": "street", "sources": ["https://www.ptcg-news.com/store-info/north-store", "https://asia.pokemon-card.com/tw/event-search/list/"]},
+  {"name": "貓腳印 高雄店（高雄巨蛋）", "type": "pokemon", "address": "813高雄市左營區立文路77號6樓", "city": "高雄市", "area": "左營・高雄巨蛋", "events": "貓腳印連鎖官方道館分店；列於 ptcg-news 南部官方店名錄；2026 逐場賽程見粉專（近期 active）", "note": "高雄巨蛋附近；週末12:00起營業", "confidence": "medium", "verified_2026": true, "lat": 22.681239, "lng": 120.316735, "precision": "street", "sources": ["https://www.ptcg-news.com/store-info/south-store", "https://www.facebook.com/CatFootPrintKaohSiung.tw/"]},
+  {"name": "Magi 台北西門店", "type": "both", "address": "108台北市萬華區峨嵋街28號2樓", "city": "台北市", "area": "西門町", "events": "約30席對戰／交換空間，辦對戰活動；經營寶可夢及航海王 OPCG（含近期彈，2026 active）；具體官方賽制逐場見粉專", "note": "日系 Magi 連鎖；2026 粉專持續更新（店 active），惟官方 GYM/店賽逐場排程未抓到", "confidence": "medium", "verified_2026": false, "lat": 25.044454, "lng": 121.502976, "precision": "street", "sources": ["https://cardshopmagi.com/shop/magi-taipei/", "https://www.facebook.com/ximending.taipei.magi/"]},
+  {"name": "決鬥城市（台北車站店）", "type": "both", "address": "100台北市中正區市民大道一段100號B1（台北車站地下街Y區，近Y11）", "city": "台北市", "area": "台北車站地下街", "events": "專營遊戲王、航海王、寶可夢卡牌販售並辦牌桌賽事；台北車站地下街，2026 賽程見粉專", "note": "OPCG/PTCG 官方賽事逐場排程未能完整 confirm", "confidence": "low", "verified_2026": false, "lat": 25.048556, "lng": 121.517142, "precision": "street", "sources": ["https://www.facebook.com/p/%E6%B1%BA%E9%AC%A5%E5%9F%8E%E5%B8%82-100068120029147/"]},
+  {"name": "台灣航海王專賣店（西門店）", "type": "onepiece", "address": "108台北市萬華區武昌街二段118之2號", "city": "台北市", "area": "西門町", "events": "Bandai 官方 carddass 台灣 OP 卡牌交流會/店鋪賽列表所列店鋪；惟 surface 賽事資料多為 2024，2026 active 未能獨立 confirm", "note": "地址可 trace（Yelp 2026/01 仍列營業），2026 官方賽事待確認，行前務必電話確認", "confidence": "low", "verified_2026": false, "lat": 25.044681, "lng": 121.507064, "precision": "street", "sources": ["https://www.carddass.com/onepiece-tcg_tw/events/officialevents/meetup/list.php", "https://www.yelp.com/biz/%E5%8F%B0%E7%81%A3%E8%88%AA%E6%B5%B7%E7%8E%8B%E5%B0%88%E8%B3%A3%E5%BA%97-%E5%8F%B0%E5%8C%97%E5%B8%82%E8%90%AC%E8%8F%AF%E5%8D%80"]},
+  {"name": "暖角落", "type": "onepiece", "address": "105台北市松山區八德路四段135號B1", "city": "台北市", "area": "松山區", "events": "Bandai 官方 carddass 台灣 OP 卡牌交流會/店鋪賽列表所列；惟 surface 賽事為 2024，2026 仍辦未能獨立 confirm", "note": "地址 source-trace 到，2026 官方賽事待確認", "confidence": "low", "verified_2026": false, "lat": 25.049885, "lng": 121.577272, "precision": "district", "sources": ["https://www.carddass.com/onepiece-tcg_tw/events/officialevents/meetup/list.php"]},
+  {"name": "台南卡通卡片遊戲店", "type": "pokemon", "address": "701台南市東區勝利路69號B1", "city": "台南市", "area": "東區・成大商圈", "events": "專營多種 TCG 含寶可夢卡牌；列於 ptcg-news 南部官方店名錄方向；2026 賽程見 IG @tainancartoontcg", "note": "成大附近；官方賽事逐場排程未完整 confirm", "confidence": "low", "verified_2026": false, "lat": 22.998568, "lng": 120.218381, "precision": "street", "sources": ["https://www.instagram.com/tainancartoontcg/", "https://www.ptcg-news.com/store-info/south-store"]},
+  {"name": "紙牌屋 Card Cellar", "type": "both", "address": "701台南市東區東門路一段354號10樓（另查得忠義路二段174號2樓，門牌待確認）", "city": "台南市", "area": "東區", "events": "台南綜合 TCG 店，辦寶可夢超級球聯盟賽等，亦營 One Piece；報名期及賽期見 card-cellar.com", "note": "source 出現兩個地址，門牌需店家二次確認", "confidence": "low", "verified_2026": false, "lat": 22.986736, "lng": 120.218485, "precision": "street", "sources": ["https://www.card-cellar.com/", "https://www.facebook.com/CardCellarTW/"]}
+];
+/* === END SHOP DATA === */
+const DATA_UPDATED = "2026-05-16";
+
+/* ---- region 由 city 推導 ---- */
+function regionOf(city){
+  if(/台北|臺北|新北/.test(city)) return "台北・新北";
+  if(/桃園|新竹/.test(city))      return "桃園・新竹";
+  if(/台中|臺中/.test(city))      return "台中";
+  if(/台南|臺南/.test(city))      return "台南";
+  if(/高雄/.test(city))           return "高雄";
+  return "其他";
+}
+const TYPE_LABEL={pokemon:"寶可夢 PTCG",onepiece:"One Piece",both:"兩款都有"};
+
+/* ---- state ---- */
+let fType="all", fRegion="all", fQ="", fVerified=false, userPos=null;
+const CONF_RANK={high:0,medium:1,low:2};
+
+/* ---- distance (haversine, km) ---- */
+function distKm(a,b,c,d){
+  const R=6371,r=Math.PI/180;
+  const x=Math.sin((c-a)*r/2)**2 +
+          Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+/* ---- map links（iPhone 優先 Apple Maps）---- */
+function appleLink(s){
+  const q=encodeURIComponent(s.name+" "+s.address);
+  return "https://maps.apple.com/?q="+q;
+}
+function gmapLink(s){
+  const q=encodeURIComponent(s.name+" "+s.address);
+  return "https://www.google.com/maps/search/?api=1&query="+q;
+}
+
+/* ---- filtering ---- */
+function visibleShops(){
+  let arr=SHOPS.filter(s=>{
+    if(fType==="pokemon"  && !(s.type==="pokemon"  || s.type==="both")) return false;
+    if(fType==="onepiece" && !(s.type==="onepiece" || s.type==="both")) return false;
+    if(fType==="both"     && s.type!=="both") return false;
+    if(fVerified && !s.verified_2026) return false;
+    if(fRegion!=="all" && regionOf(s.city)!==fRegion) return false;
+    if(fQ){
+      const hay=(s.name+" "+s.address+" "+(s.area||"")+" "+(s.events||"")+" "+s.city).toLowerCase();
+      if(!hay.includes(fQ.toLowerCase())) return false;
+    }
+    return true;
+  });
+  if(userPos){
+    arr.forEach(s=>{ s._d = (s.lat!=null&&s.lng!=null)
+      ? distKm(userPos.lat,userPos.lng,s.lat,s.lng) : Infinity; });
+    arr.sort((a,b)=>a._d-b._d);
+  }else{
+    // 未定位：2026 已確認賽事優先，再按資料信心
+    arr.sort((a,b)=>
+      (b.verified_2026?1:0)-(a.verified_2026?1:0) ||
+      (CONF_RANK[a.confidence]??3)-(CONF_RANK[b.confidence]??3));
+  }
+  return arr;
+}
+
+/* ---- render list ---- */
+const listEl=document.getElementById("list");
+const statusEl=document.getElementById("status");
+function esc(t){return (t||"").replace(/[&<>"]/g,m=>(
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
+
+function render(){
+  const arr=visibleShops();
+  const total=SHOPS.length, vAll=SHOPS.filter(s=>s.verified_2026).length;
+  statusEl.innerHTML = userPos
+    ? `已定位 · 顯示 <b>${arr.length}</b> 間（共 ${total}），最近排最前`
+    : `共 <b>${total}</b> 間 · 其中 <b>${vAll}</b> 間 2026 官方賽事已確認 · 顯示 <b>${arr.length}</b> 間 · 撳「📍 搵最近」按距離排`;
+
+  const bn=document.getElementById("opBanner");
+  if(bn){
+    const dismissed=localStorage.getItem("opBannerX")==="1";
+    const relevant=(fType==="all"||fType==="onepiece");
+    bn.style.display=(!dismissed && relevant)?"":"none";
+  }
+
+  if(!arr.length){
+    listEl.innerHTML='<div class="empty">冇符合條件嘅卡店<br>試下放寬篩選</div>';
+  }else{
+    listEl.innerHTML=arr.map((s,i)=>{
+      const tcls=s.type, near=(userPos&&i===0&&s._d!==Infinity);
+      const dist=(userPos&&s._d!==Infinity)
+        ? `<span class="tag dist">📍 ${s._d<1?(s._d*1000).toFixed(0)+" m":s._d.toFixed(1)+" km"}${near?" · 最近":""}</span>`:"";
+      const conf=s.confidence==="low"
+        ? ' <span class="addr-flag">· 地址待核</span>':"";
+      const evt=s.verified_2026
+        ? '<span class="tag evt-yes">✅ 2026 官方賽事</span>'
+        : '<span class="tag evt-no">⚠️ 賽程待確認</span>';
+      const src=(s.sources&&s.sources.length)
+        ? `<div class="src">${s.sources.slice(0,2).map((u,n)=>
+            `<a href="${esc(u)}" target="_blank" rel="noopener">來源${n+1}</a>`).join(" · ")}</div>`:"";
+      return `<div class="card t-${tcls}">
+        <div class="nm">${esc(s.name)}</div>
+        <div class="badges">
+          <span class="tag ${tcls==='pokemon'?'pk':tcls==='onepiece'?'op':'both'}">${TYPE_LABEL[s.type]}</span>
+          ${evt}${dist}
+        </div>
+        ${s.events?`<div class="evt">🏆 <b>賽事</b>：${esc(s.events)}</div>`:""}
+        <div class="addr">📮 ${esc(s.address)}${conf}</div>
+        ${s.note?`<div class="note">${esc(s.note)}</div>`:""}
+        <div class="acts">
+          <a class="nav-apple" href="${appleLink(s)}">🧭 Apple 地圖導航</a>
+          <a class="nav-g" href="${gmapLink(s)}" target="_blank" rel="noopener">Google Maps</a>
+        </div>
+        ${src}
+      </div>`;
+    }).join("");
+  }
+  if(mapReady) drawMarkers(arr);
+}
+
+/* ---- chip wiring ---- */
+function wireChips(id,set){
+  const box=document.getElementById(id);
+  box.addEventListener("click",e=>{
+    const b=e.target.closest(".chip"); if(!b)return;
+    [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    set(b.dataset.type||b.dataset.region); render();
+  });
+}
+wireChips("typeChips",v=>fType=v);
+wireChips("regionChips",v=>fRegion=v);
+document.getElementById("q").addEventListener("input",e=>{fQ=e.target.value.trim();render();});
+const verBtn=document.getElementById("verBtn");
+verBtn.addEventListener("click",()=>{
+  fVerified=!fVerified;
+  verBtn.setAttribute("aria-pressed",String(fVerified));
+  render();
+});
+
+/* ---- geolocation ---- */
+const locBtn=document.getElementById("locBtn");
+locBtn.addEventListener("click",()=>{
+  if(!navigator.geolocation){alert("此裝置唔支援定位");return;}
+  locBtn.disabled=true; locBtn.textContent="📍 定位中…";
+  navigator.geolocation.getCurrentPosition(p=>{
+    userPos={lat:p.coords.latitude,lng:p.coords.longitude};
+    locBtn.textContent="📍 已定位"; locBtn.disabled=false;
+    if(mapReady && map){
+      if(window._um) map.removeLayer(window._um);
+      window._um=L.circleMarker([userPos.lat,userPos.lng],
+        {radius:8,color:"#fff",weight:2,fillColor:"#7a5bff",fillOpacity:1})
+        .addTo(map).bindPopup("你喺呢度");
+      map.setView([userPos.lat,userPos.lng],13);
+    }
+    render();
+  },err=>{
+    locBtn.textContent="📍 搵最近"; locBtn.disabled=false;
+    alert("定位失敗："+(err.code===1?"請喺設定允許位置權限":"暫時取唔到位置"));
+  },{enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+});
+
+/* ---- tabs ---- */
+const tabList=document.getElementById("tabList"),
+      tabMap=document.getElementById("tabMap"),
+      mapWrap=document.getElementById("mapWrap");
+tabList.addEventListener("click",()=>switchTab("list"));
+tabMap.addEventListener("click",()=>switchTab("map"));
+function switchTab(t){
+  const isMap=t==="map";
+  tabList.setAttribute("aria-selected",!isMap);
+  tabMap.setAttribute("aria-selected",isMap);
+  listEl.classList.toggle("hide",isMap);
+  statusEl.classList.toggle("hide",isMap);
+  mapWrap.classList.toggle("hide",!isMap);
+  if(isMap) ensureMap();
+}
+
+/* ---- Leaflet map (lazy + offline-safe) ---- */
+let map=null, mapReady=false, markerLayer=null;
+function ensureMap(){
+  if(mapReady) { setTimeout(()=>map&&map.invalidateSize(),60); return; }
+  if(typeof L==="undefined"){
+    const s=document.createElement("script");
+    s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload=initMap;
+    s.onerror=()=>{document.getElementById("map").innerHTML=
+      '<div class="maperr">⚠️ 地圖需要網路先載入到<br>而家可以用「📋 清單」— 離線都用到，撳「導航」一樣去到</div>';};
+    document.head.appendChild(s);
+  }else initMap();
+}
+function initMap(){
+  if(window.__noLeafletCss){
+    const l=document.createElement("link");l.rel="stylesheet";
+    l.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(l);
+  }
+  map=L.map("map",{zoomControl:true}).setView([23.7,121],7);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+  markerLayer=L.layerGroup().addTo(map);
+  mapReady=true;
+  if(userPos){
+    window._um=L.circleMarker([userPos.lat,userPos.lng],
+      {radius:8,color:"#fff",weight:2,fillColor:"#7a5bff",fillOpacity:1})
+      .addTo(map).bindPopup("你喺呢度");
+  }
+  drawMarkers(visibleShops());
+  setTimeout(()=>map.invalidateSize(),60);
+}
+const TYPE_COLOR={pokemon:"#ff4d4f",onepiece:"#2f6bff",both:"#1fbf75"};
+function drawMarkers(arr){
+  if(!markerLayer)return;
+  markerLayer.clearLayers();
+  const pts=[];
+  arr.forEach(s=>{
+    if(s.lat==null||s.lng==null)return;
+    pts.push([s.lat,s.lng]);
+    L.circleMarker([s.lat,s.lng],{radius:8,color:"#fff",weight:1.5,
+      fillColor:TYPE_COLOR[s.type],fillOpacity:.95})
+      .addTo(markerLayer)
+      .bindPopup(`<div class="pp"><div class="pp-nm">${esc(s.name)}</div>
+        <div class="pp-ad">${esc(s.address)}</div>
+        <a href="${appleLink(s)}">Apple 地圖</a>
+        <a class="g" href="${gmapLink(s)}" target="_blank" rel="noopener">Google</a></div>`);
+  });
+  if(pts.length && !userPos){
+    try{map.fitBounds(pts,{padding:[30,30],maxZoom:13});}catch(e){}
+  }
+}
+
+/* ---- init ---- */
+document.getElementById("meta").textContent =
+  `資料更新：${DATA_UPDATED} · 官方賽事主辦店 ${SHOPS.length} 間（${SHOPS.filter(s=>s.verified_2026).length} 間2026已核實）· 為朋友台灣行程而製`;
+
+const bnX=document.getElementById("bnX");
+if(bnX) bnX.addEventListener("click",()=>{
+  localStorage.setItem("opBannerX","1");
+  const bn=document.getElementById("opBanner"); if(bn) bn.style.display="none";
+});
+
+/* 動態量 header 實高 → #map 高度準（header 行數會變） */
+const hdrEl=document.querySelector("header");
+function syncHdr(){
+  if(hdrEl) document.documentElement.style.setProperty(
+    "--hdr", hdrEl.offsetHeight + "px");
+}
+syncHdr();
+addEventListener("resize",syncHdr);
+addEventListener("orientationchange",()=>setTimeout(syncHdr,200));
+
+render();
+</script>
+</body>
+</html>
