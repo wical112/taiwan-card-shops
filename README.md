@@ -2,11 +2,17 @@
 
 為朋友台灣行程而製嘅單檔離線地圖 app。
 
+## 🔗 Live（傳呢條俾朋友）
+
+**https://wical112.github.io/taiwan-card-shops/**
+
+GitHub Pages（public repo `wical112/taiwan-card-shops`，main / root）。`git push` 後約 30 秒自動重新發佈。
+
 ## 點用 / 點交俾朋友
 
-- 整個 app 就係**一個檔案** `index.html`。
-- 傳俾朋友最簡單：AirDrop / WhatsApp / email `index.html` 俾佢 → 佢用 **iPhone Safari 打開** → 撳分享鍵「**加入主畫面**」→ 變成似 app 嘅 icon，**離線都開到**。
-- 或者放上任何 static host（Firebase / Vercel / GitHub Pages）俾條 link 佢。
+- 直接傳上面條 link，朋友 iPhone Safari 開 → 分享鍵「**加入主畫面**」→ 似 app icon，之後**離線都開到**。
+- 或 AirDrop `index.html` 單檔俾佢（完全離線）。
+- 更新資料：改檔 → `git add -A && git commit && git push` → Pages 自動 rebuild。
 
 ## 功能
 
