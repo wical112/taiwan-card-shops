@@ -37,7 +37,16 @@ GitHub Pages（public repo `wical112/taiwan-card-shops`，main / root）。`git 
 # 1. 改 shops_raw2.json（現行資料源；shops_raw.json 為第一輪保留）
 python3 geocode.py shops_raw2.json shops_geo2.json   # Nominatim 漸進退化補 lat/lng
 # 2. 注入：用 SHOPS 陣列替換 one-liner（見對話/LEARNINGS），keys 含 events / verified_2026
+# 3. ⚠️ 一定要 bump sw.js 個 VERSION（例 v2-2026-05-20）否則 PWA 用戶食 cache 舊版！
+# 4. git add -A && git commit && git push → Pages 自動 rebuild
 ```
+
+## PWA / 離線
+
+- 加入主畫面後係 standalone PWA；service worker (`sw.js`) precache app shell + 上限快取 OSM tiles → **第二次起離線都即開、行過嘅地圖都有**。
+- **改任何嘢部署前必 bump `sw.js` 的 `VERSION`**（offline-first，唔 bump 用戶 cache 唔會更新）。
+- 導航掣用 directions deeplink（Apple `?daddr=` / Google `dir/?api=1`）→ 一撳即由現在位置帶路。
+- iOS 主畫面 icon：`icon.svg`（iOS 對 apple-touch-icon 偏好 PNG；如要最靚 icon 可日後加 180/512 PNG，現 SVG 已可用）。
 
 ## 已知 gap
 
