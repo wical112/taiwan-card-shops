@@ -1,7 +1,7 @@
 /* 台灣卡店地圖 — service worker
    Shell precache (offline 即開) + Leaflet SWR + OSM tile 上限快取。
    改版時 bump VERSION 觸發更新。 */
-const VERSION = "v2-2026-05-16";
+const VERSION = "v3-2026-05-18";
 const SHELL = "shell-" + VERSION;
 const TILES = "tiles-" + VERSION;
 const LIB   = "lib-"   + VERSION;
