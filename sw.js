@@ -1,14 +1,21 @@
 /* 台灣卡店地圖 — service worker
-   Shell precache (offline 即開) + Leaflet SWR + OSM tile 上限快取。
+   Shell precache (offline 即開, 含本地 Leaflet) + OSM tile 上限快取。
    改版時 bump VERSION 觸發更新。 */
-const VERSION = "v3-2026-05-18";
+const VERSION = "v4-2026-05-18";
 const SHELL = "shell-" + VERSION;
 const TILES = "tiles-" + VERSION;
-const LIB   = "lib-"   + VERSION;
 const TILE_MAX = 350;
 
 const SHELL_URLS = [
   "./", "./index.html", "./manifest.webmanifest", "./icon.svg",
+  // Leaflet 本地化 (vendor) — 唔再靠 CDN，真正 offline-safe
+  "./vendor/leaflet/leaflet.js",
+  "./vendor/leaflet/leaflet.css",
+  "./vendor/leaflet/images/marker-icon.png",
+  "./vendor/leaflet/images/marker-icon-2x.png",
+  "./vendor/leaflet/images/marker-shadow.png",
+  "./vendor/leaflet/images/layers.png",
+  "./vendor/leaflet/images/layers-2x.png",
 ];
 
 self.addEventListener("install", e => {
@@ -20,7 +27,7 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(k => ![SHELL, TILES, LIB].includes(k)).map(k => caches.delete(k))
+      keys.filter(k => ![SHELL, TILES].includes(k)).map(k => caches.delete(k))
     )).then(() => self.clients.claim())
   );
 });
@@ -49,20 +56,6 @@ self.addEventListener("fetch", e => {
         if (res.ok) { c.put(req, res.clone()); capCache(TILES, TILE_MAX); }
         return res;
       } catch { return hit || Response.error(); }
-    })());
-    return;
-  }
-
-  // Leaflet CDN — stale-while-revalidate
-  if (url.hostname === "cdn.jsdelivr.net") {
-    e.respondWith((async () => {
-      const c = await caches.open(LIB);
-      const hit = await c.match(req);
-      const net = fetch(req).then(res => {
-        if (res.ok) c.put(req, res.clone());
-        return res;
-      }).catch(() => hit);
-      return hit || net;
     })());
     return;
   }

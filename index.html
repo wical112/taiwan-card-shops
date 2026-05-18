@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1117">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
 <title>台灣卡店地圖 · Pokémon / One Piece</title>
 <meta name="description" content="台灣 Pokémon / One Piece 官方賽事主辦卡店地圖：23 間五大都會區卡店，一撳 Apple/Google 地圖導航，離線可用。">
 <meta property="og:type" content="website">
@@ -18,7 +20,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="台灣卡店">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css"
       onerror="window.__noLeafletCss=1">
 <style>
   :root{
@@ -476,7 +478,7 @@ function ensureMap(){
   if(mapReady) { setTimeout(()=>map&&map.invalidateSize(),60); return; }
   if(typeof L==="undefined"){
     const s=document.createElement("script");
-    s.src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
+    s.src="vendor/leaflet/leaflet.js";
     s.onload=initMap;
     s.onerror=()=>{document.getElementById("map").innerHTML=
       '<div class="maperr">⚠️ 地圖需要網路先載入到<br>而家可以用「📋 清單」— 離線都用到，撳「導航」一樣去到</div>';};
@@ -486,7 +488,7 @@ function ensureMap(){
 function initMap(){
   if(window.__noLeafletCss){
     const l=document.createElement("link");l.rel="stylesheet";
-    l.href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
+    l.href="vendor/leaflet/leaflet.css";
     document.head.appendChild(l);
   }
   map=L.map("map",{zoomControl:true}).setView([23.7,121],7);
